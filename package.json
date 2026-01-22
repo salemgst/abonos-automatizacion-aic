@@ -1,0 +1,35 @@
+{
+  "name": "abonos-aic",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run src/index.ts --debug",
+    "debug:emails": "bun run src/debug-emails.ts",
+    "get-sharepoint-ids": "bun run scripts/get-sharepoint-ids.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "oxfmt": "^0.26.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.13.0",
+    "@microsoft/kiota-authentication-azure": "^1.0.0-preview.99",
+    "@microsoft/microsoft-graph-types": "^2.43.1",
+    "@microsoft/msgraph-sdk": "^1.0.0-preview.77",
+    "@microsoft/msgraph-sdk-drives": "^1.0.0-preview.77",
+    "@microsoft/msgraph-sdk-sites": "^1.0.0-preview.77",
+    "@microsoft/msgraph-sdk-users": "^1.0.0-preview.77",
+    "ansis": "^4.2.0",
+    "cheerio": "^1.1.2",
+    "commander": "^14.0.2",
+    "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
+    "ora": "^9.1.0",
+    "unpdf": "^1.4.0"
+  }
+}
