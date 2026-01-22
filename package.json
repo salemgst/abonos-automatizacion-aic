@@ -1,12 +1,11 @@
 {
-  "name": "abonos-aic",
+  "name": "abonos-automatizacion-aic",
   "module": "src/index.ts",
   "type": "module",
   "private": true,
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun run src/index.ts --debug",
-    "debug:emails": "bun run src/debug-emails.ts",
     "get-sharepoint-ids": "bun run scripts/get-sharepoint-ids.ts"
   },
   "devDependencies": {
