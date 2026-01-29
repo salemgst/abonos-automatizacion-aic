@@ -64,23 +64,18 @@ export async function processBankCurrency(
 
     // Save file (location depends on debug mode)
     if (debugMode) {
-        // Save to debug directory
+        // Debug mode: save to local debug directory only
         spinner.start("Guardando en debug-output...");
-        const outputPath = await saveWorkbook(workbook, fileName, true);
+        const outputPath = await saveWorkbook(workbook, fileName);
         spinner.succeed(green(`✅ Guardado: ${outputPath}`));
         return outputPath;
     } else {
-        // Save local backup
-        spinner.start("Guardando backup local...");
-        const localPath = await saveWorkbook(workbook, fileName, false);
-        spinner.succeed(green(`✅ Guardado: ${localPath}`));
-
-        // Upload to SharePoint
+        // Production mode: upload to SharePoint only (no local backup)
         spinner.start("Subiendo a SharePoint...");
         const buffer = await getWorkbookBuffer(workbook);
         await uploadToSharePoint(sharePointPath, fileName, buffer);
         spinner.succeed(green("✅ Subido a SharePoint"));
-        
-        return localPath;
+
+        return `SharePoint: ${sharePointPath}/${fileName}`;
     }
 }

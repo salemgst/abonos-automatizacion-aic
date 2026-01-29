@@ -6,9 +6,11 @@ import * as path from "path";
 import { downloadFromSharePoint } from "./sharepoint";
 
 /**
- * Load workbook from SharePoint or local template
- * Priority: SharePoint > Local existing file > Template
- * 
+ * Load workbook from SharePoint, local debug file, or template
+ *
+ * Priority in production mode: SharePoint > Template
+ * Priority in debug mode: Local debug file > Template
+ *
  * @param bank - Bank name
  * @param currency - Currency
  * @param year - Year
@@ -27,11 +29,20 @@ export async function loadWorkbook(
     const fileName = `MOVIMIENTOS DE BANCO ${bank} ${currency} ${year}.xlsx`;
     const workbook = new ExcelJS.Workbook();
 
-    // In production mode, try to download from SharePoint first
-    if (!debugMode) {
+    if (debugMode) {
+        // Debug mode: check local debug file first
+        const localPath = path.join(config.debug.outputDir, fileName);
+
+        if (fs.existsSync(localPath)) {
+            console.log(`  📂 Cargando archivo local existente: ${fileName}`);
+            await workbook.xlsx.readFile(localPath);
+            return workbook;
+        }
+    } else {
+        // Production mode: try to download from SharePoint
         console.log(`  🔍 Buscando archivo en SharePoint...`);
         const sharePointBuffer = await downloadFromSharePoint(sharePointPath, fileName);
-        
+
         if (sharePointBuffer) {
             console.log(`  📂 Cargando archivo existente de SharePoint`);
             // ExcelJS expects Node.js Buffer type, but Bun's Buffer is compatible at runtime
@@ -41,17 +52,7 @@ export async function loadWorkbook(
         }
     }
 
-    // In debug mode or if not found in SharePoint, check local file
-    const outputDir = debugMode ? config.debug.outputDir : config.excel.outputPath;
-    const localPath = path.join(outputDir, fileName);
-
-    if (fs.existsSync(localPath)) {
-        console.log(`  📂 Cargando archivo local existente: ${fileName}`);
-        await workbook.xlsx.readFile(localPath);
-        return workbook;
-    }
-
-    // If no existing file, load fresh template
+    // If no existing file found, load fresh template
     if (!fs.existsSync(templatePath)) {
         throw new Error(`❌ Template file not found: ${templatePath}\nPlease ensure the template file exists.`);
     }
@@ -122,15 +123,15 @@ export function populateWorksheet(worksheet: ExcelJS.Worksheet, data: BankStatem
 }
 
 /**
- * Save workbook to file
+ * Save workbook to debug output directory
+ * Only used in debug mode - production mode uploads directly to SharePoint
  */
 export async function saveWorkbook(
     workbook: ExcelJS.Workbook,
-    fileName: string,
-    debugMode: boolean = false
+    fileName: string
 ): Promise<string> {
-    const outputDir = debugMode ? config.debug.outputDir : config.excel.outputPath;
-    
+    const outputDir = config.debug.outputDir;
+
     // Ensure directory exists
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });

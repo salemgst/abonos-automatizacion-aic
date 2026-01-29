@@ -64,9 +64,6 @@ export const config = {
     excel: {
         // Path to template file
         templatePath: "./plantilla/plantilla.xlsx",
-
-        // Local output path for backup (relative or absolute)
-        outputPath: "./output",
     },
 
     // Debug and development flags
