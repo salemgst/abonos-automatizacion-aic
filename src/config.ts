@@ -22,6 +22,9 @@ export const BANKS = {
 export type BankName = keyof typeof BANKS;
 export type Currency = "SOLES" | "DOLARES";
 
+// SharePoint paths - not all banks have all currencies
+type SharePointPaths = Record<BankName, Partial<Record<Currency, string>>>;
+
 export const config = {
     // Email filtering configuration
     email: {
@@ -51,13 +54,13 @@ export const config = {
         // Pattern: basePath + "/" + path + "/" + year + "/" + filename
         paths: {
             BCP: {
-                SOLES: "BCP SOLES",      // Full path: CONTABILIDAD OPERATIVA/.../BCP SOLES/2025/...
-                DOLARES: "BCP DOLARES"   // Full path: CONTABILIDAD OPERATIVA/.../BCP DOLARES/2025/...
+                SOLES: "BCP SOLES",
+                DOLARES: "BCP DOLARES"
             },
             INTERBANK: {
-                SOLES: "INTERBANK"       // Full path: CONTABILIDAD OPERATIVA/.../INTERBANK/2025/... (sin moneda)
+                SOLES: "INTERBANK"
             }
-        }
+        } as SharePointPaths
     },
 
     // Excel generation configuration
