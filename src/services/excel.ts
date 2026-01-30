@@ -1,9 +1,8 @@
 import ExcelJS from "exceljs";
 import { config } from "../config";
 import type { BankStatementData, BankMovement } from "../types/bank-data";
-import * as fs from "node:fs";
-import * as path from "path";
 import { downloadFromSharePoint } from "./sharepoint";
+import { join } from "node:path";
 
 /**
  * Load workbook from SharePoint, local debug file, or template
@@ -31,9 +30,9 @@ export async function loadWorkbook(
 
     if (debugMode) {
         // Debug mode: check local debug file first
-        const localPath = path.join(config.debug.outputDir, fileName);
+        const localPath = join(config.debug.outputDir, fileName);
 
-        if (fs.existsSync(localPath)) {
+        if (await Bun.file(localPath).exists()) {
             console.log(`  📂 Cargando archivo local existente: ${fileName}`);
             await workbook.xlsx.readFile(localPath);
             return workbook;
@@ -45,15 +44,15 @@ export async function loadWorkbook(
 
         if (sharePointBuffer) {
             console.log(`  📂 Cargando archivo existente de SharePoint`);
-            // ExcelJS expects Node.js Buffer type, but Bun's Buffer is compatible at runtime
-            // @ts-expect-error - Bun Buffer is compatible with Node Buffer at runtime
-            await workbook.xlsx.load(sharePointBuffer);
+            // ExcelJS load accepts Buffer or ArrayBuffer
+            const uint8Array = new Uint8Array(sharePointBuffer);
+            await workbook.xlsx.load(uint8Array.buffer);
             return workbook;
         }
     }
 
     // If no existing file found, load fresh template
-    if (!fs.existsSync(templatePath)) {
+    if (!await Bun.file(templatePath).exists()) {
         throw new Error(`❌ Template file not found: ${templatePath}\nPlease ensure the template file exists.`);
     }
 
@@ -118,12 +117,10 @@ export async function saveWorkbook(
 ): Promise<string> {
     const outputDir = config.debug.outputDir;
 
-    // Ensure directory exists
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
+    // Ensure directory exists using Bun
+    await Bun.write(join(outputDir, ".gitkeep"), "");
 
-    const filePath = path.join(outputDir, fileName);
+    const filePath = join(outputDir, fileName);
     await workbook.xlsx.writeFile(filePath);
 
     return filePath;
@@ -133,8 +130,9 @@ export async function saveWorkbook(
  * Get workbook as buffer for SharePoint upload
  */
 export async function getWorkbookBuffer(workbook: ExcelJS.Workbook): Promise<Buffer> {
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
+    const arrayBuffer = await workbook.xlsx.writeBuffer();
+    // Convert to Bun's Buffer
+    return Buffer.from(arrayBuffer);
 }
 
 // Re-export from monthly tab module
