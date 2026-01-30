@@ -34,7 +34,7 @@ export const config = {
         // List of allowed sender email addresses to filter
         allowedSenders: [
             "notificaciones@notificacionesbcp.com.pe",
-            "bancaporinternet@empresas.interbank.pe",
+            "jorgemiyake@hotmail.com",,
         ] as string[],
     },
 
