@@ -43,7 +43,7 @@ export const config = {
   sharepoint: {
     // Document library drive ID (get from SharePoint library settings)
 
-    driveId: "b!24ptS1-d7k6xw4EywLyik1bKPsvUJytIollPFpBNG0a2S5YJ2mUUTYF0kr5FeM1Z",
+    driveId: "b!ST6DZxXpuUybO8BsSFncMQMm1ruj1glDlq7zQwi0J3qh-5XzKNS5SYH_qp41iWKe",
 
     // Drive Id del sitio de pruebas
     // driveId: "b!24ptS1-d7k6xw4EywLyik1bKPsvUJytIollPFpBNG0a2S5YJ2mUUTYF0kr5FeM1Z",
