@@ -183,9 +183,9 @@ class InterbankEmailParser extends BankEmailParser {
             return true;
         }
 
-        // Check HTML content
-        const bodyText = $('body').text();
-        return bodyText.includes('Interbank');
+        // Check HTML content (case-insensitive)
+        const bodyText = $('body').text().toLowerCase();
+        return bodyText.includes('interbank');
     }
 
     detectCurrency($: cheerio.CheerioAPI): string | undefined {
