@@ -64,8 +64,9 @@ export async function loadWorkbook(
 
 /**
  * Populate worksheet with bank statement data
- * Inserts data starting from row 7 (data rows)
- * Data is sorted by date in ascending order
+ * - Reads existing operation numbers from column F to avoid duplicates
+ * - Fills empty rows first, then appends at the end
+ * - Preserves leading zeros in operation numbers by storing as text
  */
 export function populateWorksheet(worksheet: ExcelJS.Worksheet, data: BankStatementData[]): void {
     if (data.length === 0) {
@@ -81,45 +82,30 @@ export function populateWorksheet(worksheet: ExcelJS.Worksheet, data: BankStatem
         return;
     }
 
-    // Sort movements by date (ascending order)
-    const sortedMovements = allMovements.sort((a, b) => {
-        // Parse dates in dd/mm/yyyy format
-        const parseDate = (dateStr: string): Date => {
-            const [day, month, year] = dateStr.split('/').map(Number);
-            return new Date(year, month - 1, day);
-        };
+    // Scan worksheet to find existing operations and empty rows
+    const { existingOperations, emptyRows, lastRowWithData } = scanWorksheet(worksheet);
 
-        const dateA = parseDate(a.fecha);
-        const dateB = parseDate(b.fecha);
+    console.log(`  📊 ${existingOperations.size} operaciones existentes`);
+    console.log(`  📍 ${emptyRows.length} filas vacías disponibles`);
 
-        return dateA.getTime() - dateB.getTime(); // Ascending order
-    });
+    // Filter out duplicates (both from Excel and within the batch)
+    const newMovements = filterDuplicates(allMovements, existingOperations);
 
-    console.log(`  📅 Movimientos ordenados por fecha (ascendente)`);
+    if (newMovements.length === 0) {
+        console.log("  ⚠️  Todos los movimientos ya están registrados");
+        return;
+    }
 
-    // Insert movements starting from row 7
-    let currentRow = 7;
-    sortedMovements.forEach(movement => {
-        const row = worksheet.getRow(currentRow);
+    const skippedCount = allMovements.length - newMovements.length;
+    if (skippedCount > 0) {
+        console.log(`  ⏭️  ${skippedCount} movimientos omitidos (duplicados)`);
+    }
 
-        row.getCell(1).value = movement.fecha;           // A: FECHA
-        row.getCell(2).value = movement.detalle;         // B: DETALLE (Cuenta)
-        row.getCell(3).value = movement.cargos;          // C: CARGOS (Monto)
-        // D: ABONOS - left empty
-        // E: SALDOS - left empty
-        
-        // F: NUM OP - Convert to number if possible
-        const numOpValue = movement.numOp ? parseFloat(movement.numOp) : movement.numOp;
-        row.getCell(6).value = isNaN(numOpValue as number) ? movement.numOp : numOpValue;
-        
-        row.getCell(7).value = movement.observacion;     // G: OBSERVACIÓN (Beneficiario)
-        row.getCell(8).value = movement.documento;       // H: DOCUMENTO (Mensaje)
+    // Sort by date (ascending)
+    const sortedMovements = sortMovementsByDate(newMovements);
 
-        row.commit();
-        currentRow++;
-    });
-
-    console.log(`  ✅ ${sortedMovements.length} movimientos insertados`);
+    // Insert movements into worksheet
+    insertMovements(worksheet, sortedMovements, emptyRows, lastRowWithData);
 }
 
 /**
@@ -153,3 +139,107 @@ export async function getWorkbookBuffer(workbook: ExcelJS.Workbook): Promise<Buf
 
 // Re-export from monthly tab module
 export { findMonthlyTab } from "./excel-monthly-tab";
+
+/**
+ * Scan worksheet to find existing operations and empty rows
+ */
+function scanWorksheet(worksheet: ExcelJS.Worksheet) {
+    const existingOperations = new Set<string>();
+    const emptyRows: number[] = [];
+    let lastRowWithData = 6;
+
+    for (let rowNum = 7; rowNum <= worksheet.rowCount; rowNum++) {
+        const cell = worksheet.getRow(rowNum).getCell(6); // Column F (NUM OP)
+        const value = cell.value;
+
+        if (value !== null && value !== undefined && value !== "") {
+            existingOperations.add(String(value).trim());
+            lastRowWithData = rowNum;
+        } else {
+            emptyRows.push(rowNum);
+        }
+    }
+
+    return { existingOperations, emptyRows, lastRowWithData };
+}
+
+/**
+ * Filter out duplicate movements
+ * Removes movements that already exist in Excel or are duplicated in the batch
+ */
+function filterDuplicates(
+    movements: BankMovement[],
+    existingOperations: Set<string>
+): BankMovement[] {
+    const seenInBatch = new Set<string>();
+
+    return movements.filter(movement => {
+        const numOp = movement.numOp ? String(movement.numOp).trim() : "";
+
+        if (!numOp) return false;
+
+        // Skip if already exists in Excel or in current batch
+        if (existingOperations.has(numOp) || seenInBatch.has(numOp)) {
+            return false;
+        }
+
+        seenInBatch.add(numOp);
+        return true;
+    });
+}
+
+/**
+ * Sort movements by date (ascending)
+ */
+function sortMovementsByDate(movements: BankMovement[]): BankMovement[] {
+    return movements.sort((a, b) => {
+        const parseDate = (dateStr: string): Date => {
+            const [day, month, year] = dateStr.split('/').map(Number);
+            return new Date(year, month - 1, day);
+        };
+
+        return parseDate(a.fecha).getTime() - parseDate(b.fecha).getTime();
+    });
+}
+
+/**
+ * Insert movements into worksheet
+ * Uses empty rows first, then appends at the end
+ */
+function insertMovements(
+    worksheet: ExcelJS.Worksheet,
+    movements: BankMovement[],
+    emptyRows: number[],
+    lastRowWithData: number
+): void {
+    let emptyRowIndex = 0;
+    let currentLastRow = lastRowWithData;
+
+    movements.forEach(movement => {
+        // Use empty row if available, otherwise append at the end
+        const targetRow = emptyRowIndex < emptyRows.length
+            ? emptyRows[emptyRowIndex++]
+            : ++currentLastRow;
+
+        const row = worksheet.getRow(targetRow);
+
+        row.getCell(1).value = movement.fecha;
+        row.getCell(2).value = movement.detalle;
+        row.getCell(3).value = movement.cargos;
+
+        // NUM OP - Store as text to preserve leading zeros
+        const numOpValue = movement.numOp ? String(movement.numOp).trim() : "";
+        row.getCell(6).value = numOpValue;
+        row.getCell(6).numFmt = '@'; // Text format
+
+        row.getCell(7).value = movement.observacion;
+        row.getCell(8).value = movement.documento;
+
+        row.commit();
+    });
+
+    const inEmptyRows = Math.min(emptyRowIndex, movements.length);
+    const atEnd = movements.length - inEmptyRows;
+
+    console.log(`  ✅ ${movements.length} movimientos insertados (${inEmptyRows} en filas vacías, ${atEnd} al final)`);
+}
