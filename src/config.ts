@@ -41,15 +41,12 @@ export const config = {
 
   // SharePoint upload configuration
   sharepoint: {
-    // SharePoint site ID (get from SharePoint site settings)
-    siteId:
-      "jaicoscorp.sharepoint.com,67833e49-e915-4cb9-9b3b-c06c4859dc31,bbd62603-d6a3-4309-96ae-f34308b4277a",
-
-    // Pruebas
-    // siteId: "jaicoscorp.sharepoint.com,4b6d8adb-9d5f-4eee-b1c3-8132c0bca293,cb3eca56-27d4-482b-a259-4f16904d1b46",
-
     // Document library drive ID (get from SharePoint library settings)
+
     driveId: "b!24ptS1-d7k6xw4EywLyik1bKPsvUJytIollPFpBNG0a2S5YJ2mUUTYF0kr5FeM1Z",
+
+    // Drive Id del sitio de pruebas
+    // driveId: "b!24ptS1-d7k6xw4EywLyik1bKPsvUJytIollPFpBNG0a2S5YJ2mUUTYF0kr5FeM1Z",
 
     // Base path for all bank statements (relative to the drive root, NOT including "Documents")
     // "Documents" is the name of the document library (drive), not a folder
