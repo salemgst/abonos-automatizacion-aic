@@ -1,9 +1,10 @@
 import ora from "ora";
-import { green, cyan, yellow, magenta } from "ansis";
+import { green, cyan, magenta, yellow } from "ansis";
 import { filterByBankAndCurrency } from "../utils/email-filter";
 import { loadWorkbook, findMonthlyTab, populateWorksheet, saveWorkbook, getWorkbookBuffer } from "../services/excel";
 import { uploadToSharePoint } from "../services/sharepoint";
 import { generateFileName, getSharePointPath } from "../config";
+import { logBankCurrencySummary } from "../utils/logger";
 import type { BankName, Currency } from "../config";
 import type { ParsedEmailData } from "../services/email-parser";
 
@@ -56,8 +57,19 @@ export async function processBankCurrency(
 
     // Populate data
     spinner.start("Poblando datos...");
-    populateWorksheet(worksheet, bankStatements);
+    const stats = populateWorksheet(worksheet, bankStatements);
     spinner.succeed(green("✅ Datos poblados"));
+
+    // Show summary table
+    logBankCurrencySummary(
+        bank,
+        currency,
+        filteredData.length,
+        stats.existingOps,
+        stats.emptyRows,
+        stats.newMovements,
+        stats.skipped
+    );
 
     // Generate file name
     const fileName = generateFileName(bank, currency, year);
