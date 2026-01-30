@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@azure/identity": "^4.13.0",
+    "@date-fns/utc": "^2.1.1",
     "@microsoft/kiota-authentication-azure": "^1.0.0-preview.99",
     "@microsoft/microsoft-graph-types": "^2.43.1",
     "@microsoft/msgraph-sdk": "^1.0.0-preview.77",
@@ -26,6 +27,7 @@
     "ansis": "^4.2.0",
     "cheerio": "^1.1.2",
     "commander": "^14.0.2",
+    "console-table-printer": "^2.15.0",
     "date-fns": "^4.1.0",
     "exceljs": "^4.4.0",
     "ora": "^9.1.0",
