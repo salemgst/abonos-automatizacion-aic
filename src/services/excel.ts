@@ -61,16 +61,30 @@ export async function loadWorkbook(
     return workbook;
 }
 
+export interface PopulateWorksheetResult {
+    existingOps: number;
+    emptyRows: number;
+    newMovements: number;
+    skipped: number;
+}
+
 /**
  * Populate worksheet with bank statement data
  * - Reads existing operation numbers from column F to avoid duplicates
  * - Fills empty rows first, then appends at the end
  * - Preserves leading zeros in operation numbers by storing as text
+ *
+ * @param worksheet - Target Excel worksheet
+ * @param data - Array of bank statement data to insert
+ * @returns Statistics about the operation
  */
-export function populateWorksheet(worksheet: ExcelJS.Worksheet, data: BankStatementData[]): void {
+export function populateWorksheet(
+    worksheet: ExcelJS.Worksheet,
+    data: BankStatementData[]
+): PopulateWorksheetResult {
     if (data.length === 0) {
         console.log("⚠️  No hay datos para insertar");
-        return;
+        return { existingOps: 0, emptyRows: 0, newMovements: 0, skipped: 0 };
     }
 
     // Aggregate all movements from all statements
@@ -78,26 +92,25 @@ export function populateWorksheet(worksheet: ExcelJS.Worksheet, data: BankStatem
 
     if (allMovements.length === 0) {
         console.log("⚠️  No hay movimientos para insertar");
-        return;
+        return { existingOps: 0, emptyRows: 0, newMovements: 0, skipped: 0 };
     }
 
     // Scan worksheet to find existing operations and empty rows
     const { existingOperations, emptyRows, lastRowWithData } = scanWorksheet(worksheet);
 
-    console.log(`  📊 ${existingOperations.size} operaciones existentes`);
-    console.log(`  📍 ${emptyRows.length} filas vacías disponibles`);
-
     // Filter out duplicates (both from Excel and within the batch)
     const newMovements = filterDuplicates(allMovements, existingOperations);
 
+    const skippedCount = allMovements.length - newMovements.length;
+
     if (newMovements.length === 0) {
         console.log("  ⚠️  Todos los movimientos ya están registrados");
-        return;
-    }
-
-    const skippedCount = allMovements.length - newMovements.length;
-    if (skippedCount > 0) {
-        console.log(`  ⏭️  ${skippedCount} movimientos omitidos (duplicados)`);
+        return { 
+            existingOps: existingOperations.size, 
+            emptyRows: emptyRows.length, 
+            newMovements: 0, 
+            skipped: skippedCount 
+        };
     }
 
     // Sort by date (ascending)
@@ -105,6 +118,13 @@ export function populateWorksheet(worksheet: ExcelJS.Worksheet, data: BankStatem
 
     // Insert movements into worksheet
     insertMovements(worksheet, sortedMovements, emptyRows, lastRowWithData);
+
+    return {
+        existingOps: existingOperations.size,
+        emptyRows: emptyRows.length,
+        newMovements: newMovements.length,
+        skipped: skippedCount,
+    };
 }
 
 /**
@@ -239,5 +259,5 @@ function insertMovements(
     const inEmptyRows = Math.min(emptyRowIndex, movements.length);
     const atEnd = movements.length - inEmptyRows;
 
-    console.log(`  ✅ ${movements.length} movimientos insertados (${inEmptyRows} en filas vacías, ${atEnd} al final)`);
+    console.log(`  ✅ ${movements.length} movimientos insertados (${inEmptyRows} en espacios vacíos, ${atEnd} al final)`);
 }
