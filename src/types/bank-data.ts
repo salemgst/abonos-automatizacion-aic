@@ -1,4 +1,6 @@
 import type { RawEmailData } from "./email-parser";
+import { parse, format, getYear, isValid } from "date-fns";
+import { es } from "date-fns/locale";
 
 // Types for bank movement data
 
@@ -27,10 +29,8 @@ export interface BankStatementData {
  * Extract date in dd/mm/yyyy format from datetime string
  * Examples:
  * - "13/01/2026 - 10:35 a. m." -> "13/01/2026"
- * - "21/01/2026 - 11:16 a. m." -> "21/01/2026"
  */
 function extractDateOnly(dateTimeString: string): string {
-    // Extract date part before the dash
     const match = dateTimeString.match(/^(\d{1,2}\/\d{1,2}\/\d{4})/);
     return match ? match[1] : dateTimeString;
 }
@@ -43,36 +43,45 @@ function extractDateOnly(dateTimeString: string): string {
  */
 export function mapEmailDataToBankStatement(parsedEmail: RawEmailData): BankStatementData | null {
     try {
+        // Extraer solo la fecha (sin hora) del correo
+        const fechaStr = extractDateOnly(parsedEmail.fecha || '');
+        
+        // Si no hay fecha, retornar null (correo inválido)
+        if (!fechaStr) {
+            return null;
+        }
+        
+        // Parsear la fecha a objeto Date para extraer mes y año
+        const parsedDate = parse(fechaStr, "dd/MM/yyyy", new Date());
+        
+        // Si la fecha es inválida, retornar null
+        if (!isValid(parsedDate)) {
+            console.warn(`  ⚠️  Fecha inválida: "${fechaStr}"`);
+            return null;
+        }
+        
+        const date = parsedDate;
+
         // Crear UN movimiento por correo
         const movement: BankMovement = {
-            fecha: extractDateOnly(parsedEmail.fecha || ''),  // "13/01/2026"
-            detalle: parsedEmail.cuenta || '',        // "194-XXXXXX4-0-19"
-            cargos: parsedEmail.monto || null,        // 218.30
-            abonos: null,                             // No se usa
-            saldos: null,                             // No se usa
-            numOp: parsedEmail.numOperacion || '',    // "00061864"
-            observacion: parsedEmail.beneficiario || '', // "PULSO CORPORACION..."
-            documento: parsedEmail.mensaje || ''      // "PAGO DE EMO..."
+            fecha: fechaStr,
+            detalle: parsedEmail.cuenta || '',
+            cargos: parsedEmail.monto || null,
+            abonos: null,
+            saldos: null,
+            numOp: parsedEmail.numOperacion || '',
+            observacion: parsedEmail.beneficiario || '',
+            documento: parsedEmail.mensaje || ''
         };
-
-        // TODO: Detectar mes y año del correo (por ahora usa fecha actual)
-        const now = new Date();
-        const monthNames = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
-            'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
-        const monthName = monthNames[now.getMonth()];
-
-        if (!monthName) {
-            throw new Error('Invalid month index');
-        }
 
         return {
             bank: parsedEmail.bank || 'BCP',
             currency: parsedEmail.currency || 'SOLES',
             accountNumber: parsedEmail.cuenta || '',
-            month: monthName,
-            year: now.getFullYear(),
-            saldoInicial: 0,  // No se extrae del correo
-            movements: [movement] // Array con UN solo movimiento
+            month: format(date, "MMMM", { locale: es }).toUpperCase(),  // "enero" -> "ENERO"
+            year: getYear(date),                                        // Extraer año de la fecha del correo
+            saldoInicial: 0,
+            movements: [movement]
         };
     } catch (error) {
         console.error("Error mapping email data:", error);
