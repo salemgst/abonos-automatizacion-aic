@@ -76,12 +76,26 @@ export async function downloadFromSharePoint(
         const { driveId } = config.sharepoint;
         const filePath = `${folderPath}/${fileName}`;
         const itemPath = `root:/${filePath}`;
-        
-        const content = await msClient
+
+        // First, get the item info to obtain its ID (required for content download)
+        const item = await msClient
             .drives
             .byDriveId(driveId)
             .items
             .byDriveItemId(itemPath)
+            .get();
+
+        if (!item?.id) {
+            console.log(`  ℹ️  Archivo no encontrado en SharePoint`);
+            return null;
+        }
+
+        // Now download content using the item ID
+        const content = await msClient
+            .drives
+            .byDriveId(driveId)
+            .items
+            .byDriveItemId(item.id)
             .content
             .get();
 
@@ -93,12 +107,12 @@ export async function downloadFromSharePoint(
         return null;
     } catch (error) {
         const graphError = error as GraphError;
-        
+
         if (graphError.statusCode === 404 || graphError.code === 'itemNotFound') {
             console.log(`  ℹ️  Archivo no existe en SharePoint`);
             return null;
         }
-        
+
         console.error(`  ⚠️  Error descargando:`, graphError.message || 'Error desconocido');
         return null;
     }
