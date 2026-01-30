@@ -1,7 +1,8 @@
 import { Command } from "commander";
 import ora from "ora";
 import { bold, green, red, cyan } from "ansis";
-import { config, MONTH_NAMES, getEnabledBankCurrencies } from "./config";
+import { config, getEnabledBankCurrencies } from "./config";
+import { getMonthName } from "./utils/date-utils";
 import { getFilteredEmails } from "./services/ms";
 import { parseAndFilterEmails } from "./workflows/process-emails";
 import { processBankCurrency } from "./workflows/process-bank-currency";
@@ -40,7 +41,7 @@ program
             // Validate month
             validateMonth(month);
 
-            const monthName = MONTH_NAMES[month - 1];
+            const monthName = getMonthName(month);
             console.log(bold(cyan(`\n📧 Procesando correos de ${monthName} ${year}`)));
             console.log(cyan(`📬 Buzón: ${config.email.targetUserId}`));
             if (debugMode) {
