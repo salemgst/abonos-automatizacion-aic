@@ -3,7 +3,8 @@ import "@microsoft/msgraph-sdk-drives";
 import "@microsoft/msgraph-sdk-users";
 
 import { msClient } from "../msgraph";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { UTCDate } from "@date-fns/utc";
+import { startOfMonth, endOfMonth } from "date-fns";
 import type { Message } from "@microsoft/microsoft-graph-types";
 
 // Microsoft Graph collection response with pagination
@@ -19,15 +20,26 @@ export async function getFilteredEmails(
     month: number,
     userId: string = "me"
 ): Promise<Message[]> {
-    // Create date range for the specified month
-    const startDate = startOfMonth(new Date(year, month - 1));
-    const endDate = endOfMonth(new Date(year, month - 1));
+    // Create a UTC date for the first day of the month
+    // UTCDate ensures all calculations are done in UTC, avoiding timezone issues
+    const baseDate = new UTCDate(year, month - 1, 1);
+    
+    // Get start and end of month in UTC
+    const startDate = startOfMonth(baseDate);
+    const endDate = endOfMonth(baseDate);
 
-    // Format dates for Microsoft Graph filter (UTC)
-    const startDateStr = format(startDate, "yyyy-MM-dd'T'00:00:00'Z'");
-    const endDateStr = format(endDate, "yyyy-MM-dd'T'23:59:59'Z'");
+    // Adjust for Peru timezone (UTC-5)
+    // Start: 05:00 UTC of first day (00:00 local Peru)
+    // End: 04:59:59 UTC of next month + 1 day (23:59:59 local Peru of last day)
+    startDate.setUTCHours(5, 0, 0, 0);
+    endDate.setDate(endDate.getDate() + 1);
+    endDate.setUTCHours(4, 59, 59, 999);
 
-    console.log(`  🔍 Buscando correos entre ${startDateStr} y ${endDateStr}`);
+    const startDateStr = startDate.toISOString();
+    const endDateStr = endDate.toISOString();
+
+    console.log(`  🔍 Buscando correos de ${month}/${year} (hora local Perú: UTC-5)`);
+    console.log(`  📅 Rango UTC: ${startDateStr} a ${endDateStr}`);
 
     // Simplified filter: only date range (filter senders in memory)
     // This avoids "InefficientFilter" error from complex OR conditions
@@ -43,7 +55,7 @@ export async function getFilteredEmails(
             queryParameters: {
                 filter,
                 select: ["subject", "from", "receivedDateTime", "body", "hasAttachments"],
-                orderby: ["receivedDateTime DESC"],
+                orderby: ["receivedDateTime ASC"],
                 top: 999, // Maximum per page
             }
         }) as MessageCollectionResponse;
@@ -77,6 +89,12 @@ export async function getFilteredEmails(
     });
 
     console.log(`  ✅ Correos filtrados por remitente: ${filteredMessages.length}`);
+    
+    // Debug: show receivedDateTime format of first 3 emails
+    console.log(`  🔍 Debug - Formato receivedDateTime de correos:`);
+    filteredMessages.slice(0, 3).forEach((msg, i) => {
+        console.log(`    ${i + 1}. ${msg.receivedDateTime} | ${msg.from?.emailAddress?.address}`);
+    });
 
     return filteredMessages;
 }
