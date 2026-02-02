@@ -11,33 +11,35 @@ import type { ParsedEmailData } from "../services/email-parser";
  * Parse and filter emails
  */
 export async function parseAndFilterEmails(
-    emails: Message[],
-    debugMode: boolean
+  emails: Message[],
+  debugMode: boolean
 ): Promise<ParsedEmailData[]> {
-    const spinner = ora();
-    
-    // Parse emails
-    spinner.start("Parseando contenido HTML de correos...");
-    const parsedData = emails.map((email, index) => {
-        const htmlBody = email.body?.content || "";
-        const emailFrom = email.from?.emailAddress?.address || "";
-        const parsed = parseEmailHtml(htmlBody, emailFrom);
+  const spinner = ora();
 
-        // Debug: Log each parsed email
-        if (debugMode && config.debug.verboseLogging) {
-            logParsedEmail(parsed, emailFrom, index);
-        }
+  // Parse emails
+  spinner.start("Parseando contenido HTML de correos...");
+  const parsedData = emails.map((email, index) => {
+    const htmlBody = email.body?.content || "";
+    const emailFrom = email.from?.emailAddress?.address || "";
+    const parsed = parseEmailHtml(htmlBody, emailFrom);
 
-        return parsed;
-    });
-    
-    // Filter out invalid emails (zero amounts, etc.)
-    const validParsedData = filterValidEmails(parsedData);
-    const ignoredCount = parsedData.length - validParsedData.length;
-    
-    spinner.succeed(
-        green(`✅ ${validParsedData.length} correos válidos (${ignoredCount} ignorados por monto 0)`)
-    );
+    // Debug: Log each parsed email
+    if (debugMode && config.debug.verboseLogging) {
+      logParsedEmail(parsed, emailFrom, index);
+    }
 
-    return validParsedData;
+    return parsed;
+  });
+
+  // Filter out invalid emails (zero amounts, etc.)
+  const validParsedData = filterValidEmails(parsedData);
+  const ignoredCount = parsedData.length - validParsedData.length;
+
+  spinner.succeed(
+    green(
+      `✅ ${validParsedData.length} correos válidos de ${parsedData.length} procesados (${ignoredCount} ignorados por monto 0)`
+    )
+  );
+
+  return validParsedData;
 }
