@@ -25,6 +25,7 @@ MICROSOFT_CLIENT_SECRET=tu-client-secret
 **IMPORTANTE**: Coloca tu archivo de plantilla Excel en `plantilla/plantilla.xlsx`
 
 El sistema:
+
 - Cargará la plantilla automáticamente
 - Copiará la primera hoja como base para las pestañas mensuales
 - Mantendrá todo el formato, fórmulas y estilos
@@ -41,39 +42,38 @@ export const config = {
   email: {
     // Buzón de correo objetivo
     targetUserId: "proveedores@aic.pe",
-    
+
     // Correos de remitentes permitidos
     allowedSenders: [
       "notificaciones@notificacionesbcp.com.pe",
       "bancaporinternet@empresas.interbank.pe",
     ],
   },
-  
+
   sharepoint: {
     // IDs de SharePoint (obtener con: bun run get-sharepoint-ids)
-    siteId: "tu-site-id",
     driveId: "tu-drive-id",
-    
+
     // Ruta base (relativa a la raíz del drive, SIN incluir "Documents")
     basePath: "CONTABILIDAD OPERATIVA/ESTADOS DE CUENTAS BANCARIOS",
-    
+
     // Rutas específicas por banco-moneda
     paths: {
       BCP: {
         SOLES: "BCP SOLES",
-        DOLARES: "BCP DOLARES"
+        DOLARES: "BCP DOLARES",
       },
       INTERBANK: {
-        SOLES: "INTERBANK"  // Sin moneda en el nombre
-      }
-    }
+        SOLES: "INTERBANK", // Sin moneda en el nombre
+      },
+    },
   },
-  
+
   excel: {
     templatePath: "./plantilla/plantilla.xlsx",
     outputPath: "./output",
   },
-  
+
   debug: {
     verboseLogging: true,
     outputDir: "./debug-output",
@@ -82,6 +82,7 @@ export const config = {
 ```
 
 **Nota importante sobre SharePoint:**
+
 - "Documents" es el nombre de la biblioteca de documentos (drive), NO una carpeta
 - El `driveId` ya apunta a esa biblioteca
 - Las rutas en `basePath` son relativas a la raíz del drive
@@ -100,6 +101,7 @@ bun run get-sharepoint-ids "ASISTENCIA AIC"
 ```
 
 El script te mostrará:
+
 - Todos los sitios de SharePoint disponibles
 - Las bibliotecas de documentos (drives) del sitio
 - Los IDs necesarios para configurar `src/config.ts`
@@ -109,10 +111,12 @@ Ver `scripts/README.md` para más detalles.
 ### 5. Implementar lógica de parsing (Ya implementado)
 
 El sistema ya incluye parsers para:
+
 - **BCP**: Extrae datos de correos de notificaciones BCP
 - **Interbank**: Extrae datos de correos de Interbank
 
 Los parsers están en `src/services/email-parser.ts` y usan:
+
 - Detección automática de banco por remitente
 - Detección de moneda (Soles/Dólares) por palabras clave
 - Extracción de datos con Cheerio (selectores CSS)
@@ -152,7 +156,7 @@ bun run dev --year 2025 --month 11
 2. **Parsing HTML**: Extrae datos del cuerpo HTML usando parsers específicos por banco
 3. **Filtrado por monto**: Ignora correos con monto = 0
 4. **Agrupación**: Agrupa por banco y moneda (BCP SOLES, BCP DOLARES, INTERBANK SOLES)
-5. **Carga workbook**: 
+5. **Carga workbook**:
    - Intenta descargar de SharePoint (si existe)
    - Si no existe, usa archivo local (si existe)
    - Si no existe, usa plantilla nueva
@@ -160,7 +164,7 @@ bun run dev --year 2025 --month 11
 7. **Reemplaza placeholders**: {MES}, {AÑO}, {BANK}, {CURRENCY}
 8. **Población de datos**: Inserta movimientos ordenados por fecha (ascendente)
 9. **Backup local**: Guarda copia en `./output`
-10. **Upload SharePoint**: 
+10. **Upload SharePoint**:
     - Crea estructura de carpetas si no existe
     - Sube archivo a la ruta específica del banco-moneda-año
     - Actualiza si ya existe (SharePoint mantiene versiones)
@@ -174,6 +178,7 @@ bun run dev --year 2025 --month 11
 ```
 
 En modo debug:
+
 - ✅ Procesa correos normalmente
 - ✅ Genera archivos Excel
 - ✅ Guarda en `./debug-output`
@@ -181,6 +186,7 @@ En modo debug:
 - ❌ NO sube a SharePoint
 
 Útil para:
+
 - Probar cambios sin afectar SharePoint
 - Desarrollo local
 - Verificar formato de archivos Excel
@@ -291,7 +297,109 @@ bun run get-sharepoint-ids         # Obtener IDs de SharePoint
 - ✅ Modo debug sin afectar SharePoint
 - ✅ Código completamente tipado (TypeScript)
 - ✅ Sin uso de `any` types
+- ✅ Manejo correcto de zona horaria (Perú UTC-5)
+- ✅ Lazy initialization para mejor rendimiento
+- ✅ Error handling robusto (archivos bloqueados, permisos, etc.)
+
+## Zona Horaria y Fecha
+
+### Problema de zona horaria
+
+El sistema está diseñado para operar en **hora de Perú (UTC-5)**, pero puede ejecutarse en servidores con zona horaria UTC (como Railway, AWS, etc.).
+
+**Problema**: Si el servidor está en UTC, el 31 de enero a las 23:55 PM hora Perú (UTC-5) se detecta como 1 de febrero 04:55 UTC, causando que el sistema procese el mes incorrecto.
+
+### Solución implementada
+
+Usamos **@date-fns/tz** (librería oficial de date-fns v4+) para forzar la zona horaria de Perú:
+
+```typescript
+import { TZDate } from "@date-fns/tz";
+
+// Obtener fecha actual en zona horaria de Perú
+const peruTime = new TZDate(Date.now(), "America/Lima");
+const year = peruTime.getFullYear();
+const month = peruTime.getMonth() + 1;
+```
+
+**Ventajas**:
+- ✅ Funciona correctamente sin importar la zona horaria del servidor
+- ✅ Usa nombre IANA oficial: `"America/Lima"`
+- ✅ Bundle size mínimo (761 B)
+- ✅ Librería oficial y moderna (date-fns v4+)
+- ✅ No requiere configuración adicional
+
+**Casos cubiertos**:
+- Servidor local (UTC-5): ✅ Funciona
+- Servidor en UTC (Railway, AWS): ✅ Funciona
+- Servidor en cualquier zona horaria: ✅ Funciona
+
+## Error Handling Robusto
+
+El sistema maneja errores de SharePoint de forma inteligente y **continúa procesando** otros archivos:
+
+### Archivos bloqueados (HTTP 423)
+```bash
+⚠️  Archivo bloqueado (alguien lo tiene abierto)
+ℹ️  Cierra el archivo Excel y vuelve a ejecutar para BCP SOLES
+```
+- No termina el programa
+- Continúa con otros bancos/monedas
+- Al final muestra resumen de archivos fallidos
+
+### Errores de permisos (401/403)
+```bash
+⚠️  Error de permisos en SharePoint
+ℹ️  Verifica los permisos para BCP DOLARES
+```
+
+### Archivo no encontrado (404)
+```bash
+⚠️  Carpeta o archivo no encontrado
+ℹ️  Verifica la ruta: CONTABILIDAD OPERATIVA/...
+```
+
+### Resumen final
+Al terminar, muestra qué archivos tuvieron éxito y cuáles fallaron:
+```bash
+✨ Proceso completado exitosamente
+
+📁 Archivos Generados
+┌───┬──────────────────────────────┬───────────┐
+│ # │ Archivo                      │ Ubicación │
+├───┼──────────────────────────────┼───────────┤
+│ 1 │ MOVIMIENTOS BCP SOLES.xlsx   │ SharePoint│
+│ 2 │ MOVIMIENTOS INTERBANK.xlsx   │ SharePoint│
+└───┴──────────────────────────────┴───────────┘
+
+⚠️  Proceso completado con advertencias
+
+📋 Archivos con errores:
+  ⚠️  BCP - DOLARES
+
+💡 Revisa los mensajes anteriores para más detalles
+```
+
+## Rendimiento
+
+### Lazy Initialization
+
+El cliente de Microsoft Graph usa **lazy initialization** para evitar bloqueos al inicio:
+
+```typescript
+// ANTES: Inicialización eagerly (bloqueaba el programa)
+export const msClient = getMsClient(); // ❌ Bloquea event loop
+
+// AHORA: Inicialización lazy (solo cuando se necesita)
+export const msClient = () => getMsClient(); // ✅ Instantáneo
+```
+
+**Beneficios**:
+- ✅ Inicio instantáneo del programa
+- ✅ No bloquea el event loop
+- ✅ Inicialización solo cuando se necesita
+- ✅ Cache después de la primera llamada
 
 ---
 
-Creado con [Bun](https://bun.com) v1.3.6
+Creado con [Bun](https://bun.com) v1.3.8
